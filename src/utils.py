@@ -39,15 +39,6 @@ def embed(text, weights, tokenizer, N_LAYER, N_EMBD):
 
   return embed
 
-def load_texts(file_name):
-
-  with open(file_name, 'r') as f:
-    raw_texts = f.read()
-
-  texts = raw_texts.split('\n')[:-1]
-
-  return texts
-
 def pca(X, num_components):
 
   X_meaned = X - np.mean(X, axis=0)
