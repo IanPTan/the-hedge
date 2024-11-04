@@ -142,9 +142,15 @@ class RWKV(pt.nn.Module):
 
 class Model(pt.nn.Module):
 
-    def __init__(self, in_features=1024, out_features=2):
+    def __init__(self, in_features=1024, out_features=3):
 
         super().__init__()
+        self.model = pt.nn.Sequential(
+                pt.nn.Linear(in_features=in_features, out_features=in_features),
+                pt.nn.ReLU(),
+                pt.nn.Linear(in_features=in_features, out_features=out_features),
+                pt.nn.Softmax(dim=-1)
+                )
         self.linear = pt.nn.Linear(in_features=in_features, out_features=out_features)
         self.softmax = pt.nn.Softmax(dim=-1)
 

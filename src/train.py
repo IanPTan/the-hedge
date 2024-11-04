@@ -4,27 +4,29 @@ import torch as pt
 from dataset import Dataset
 from model import Model
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 dataset_name = "../data/dataset.h5"
 epochs = 1000
-batch_size = 101
-print_freq = 100
+batch_size = 26000
 
-model = Model(in_features=1024, out_features=2).to(device)
+model = Model(in_features=1024, out_features=3).to(device)
 dataset = Dataset(dataset_name)
 
-batch_len = len(dataset) // batch_size
+batch_len = len(dataset) // batch_size + (len(dataset) % batch_size > 0)
 
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 criterion = pt.nn.CrossEntropyLoss()
-optimizer = pt.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+optimizer = pt.optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-4)
+scheduler = pt.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=32, eta_min=0)
 
 all_losses = pt.zeros(epochs)
 print(f"Starting training using {device}.")
-for epoch in range(epochs):
+pbar = tqdm(range(epochs), desc="Training...", unit="epoch")
+for epoch in pbar:
     losses = pt.zeros(batch_len)
     for i, (inputs, targets) in enumerate(dataloader):
         inputs, targets = inputs.to(device), targets.to(device)
@@ -34,9 +36,9 @@ for epoch in range(epochs):
         losses[i] = loss
         loss.backward()
         optimizer.step()
+    scheduler.step()
     all_losses[epoch] = pt.mean(losses)
-    if (epoch + 1) % print_freq == 0:
-        print(f"Epoch {epoch + 1}, Loss: {pt.mean(losses)}")
+    pbar.set_postfix(loss=f"{pt.mean(losses).item():.4f}")
 pt.save(model.state_dict(), "backup.ckpt")
 plt.plot(all_losses.detach())
 plt.show()

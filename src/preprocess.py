@@ -6,7 +6,7 @@ from utils import Embedder, pca
 import pandas as pd
 from tqdm import tqdm
 
-MODEL_FILE = "../model/RWKV-4-Pile-430M-20220808-8066.pth"
+RWKV_FILE = "../model/RWKV-4-Pile-430M-20220808-8066.pth"
 TOKENIZER_FILE = "../model/20B_tokenizer.json"
 N_LAYER = 24
 N_EMBD = 1024
@@ -14,9 +14,9 @@ raw_data_name = "../data/dataset.csv"
 dataset_name = "../data/dataset.h5"
 batch_size = 128
 
-print(f"Loading {TOKENIZER_FILE} and {MODEL_FILE}...")
+print(f"Loading {TOKENIZER_FILE} and {RWKV_FILE}...")
 
-embed = Embedder(TOKENIZER_FILE, MODEL_FILE, N_LAYER)
+embed = Embedder(TOKENIZER_FILE, RWKV_FILE, N_LAYER)
 
 print("Loading texts...")
 
