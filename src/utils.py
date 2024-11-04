@@ -1,10 +1,12 @@
 import numpy as np
-from torch import load as torch_load
-from rwkv import RWKV
+import torch as pt
+from model import RWKV
+from tokenizers import Tokenizer
 
 def dumb_simi(a, b):
 
   return ((a - b) ** 2).sum()
+
 
 def cos_simi(a, b):
 
@@ -14,30 +16,49 @@ def cos_simi(a, b):
 
   return dot_prod / (a_mag * b_mag)
 
-def load_model(MODEL_FILE, device='cpu'):
 
-  weights = torch_load(MODEL_FILE, map_location=device)
+def load_model(MODEL_FILE, device="cpu"):
 
-  for k in weights.keys():
-    if '.time_' in k: weights[k] = weights[k].squeeze()
-    weights[k] = weights[k].float().numpy()
+    state_dict = pt.load(MODEL_FILE, map_location=device)
+    for k in state_dict.keys():
+        state_dict[k] = state_dict[k].squeeze()
+        state_dict[k] = state_dict[k].float()
 
-  return weights
+    return state_dict
 
-def init_state(N_LAYER, N_EMBD):
 
-  return np.zeros((N_LAYER, 4, N_EMBD), dtype=np.float32)
+class Embedder():
 
-def embed(text, weights, tokenizer, N_LAYER, N_EMBD):
+    def __init__(self, TOKENIZER_FILE, MODEL_FILE, N_LAYER=24, device="cpu"):
 
-  state = init_state(N_LAYER, N_EMBD)
+        self.device = device
+        state_dict = load_model(MODEL_FILE=MODEL_FILE, device=device)
+        self.tokenizer = Tokenizer.from_file(TOKENIZER_FILE)
+        self.rwkv = RWKV(state_dict, N_LAYER)
+        self.rwkv.eval()
 
-  for token in tokenizer.encode(text).ids:
-    probs, state = RWKV(weights, token, state, N_LAYER)
+    def __call__(self, text):
 
-  embed = state[-1][1] / state[-1][2]
+        max_length = 0
+        encodings = self.tokenizer.encode_batch(text)
+        for i, encoding in enumerate(encodings):
+            if len(encoding) > max_length:
+                max_length = len(encoding)
+            encodings[i] = pt.tensor(encoding.ids, device=self.device)
 
-  return embed
+        x = pt.zeros((len(text), max_length), device=self.device, dtype=pt.int)
+        lengths = []
+        for i, encoding in enumerate(encodings):
+            length = len(encoding)
+            x[i, :length] = encoding
+            lengths.append(length)
+        lengths = pt.tensor(lengths, dtype=pt.int) - 1
+
+        self.rwkv.reset()
+        y = self.rwkv(x, lengths)
+
+        return y
+
 
 def pca(X, num_components):
 
@@ -55,3 +76,8 @@ def pca(X, num_components):
   X_reduced = np.dot(X_meaned, eigenvector_subset)
 
   return X_reduced
+
+
+if __name__ == "__main__":
+    e = Embedder("../model/20B_tokenizer.json", "../model/RWKV-4-Pile-430M-20220808-8066.pth")
+    y = e(["test", "bruh what"])
