@@ -142,24 +142,21 @@ class RWKV(pt.nn.Module):
 
 class Model(pt.nn.Module):
 
-    def __init__(self, in_features=1024, out_features=3):
+    def __init__(self, features=[1024, 3]):
 
         super().__init__()
+        dense_layers = []
+        for in_features, out_features in zip(features[:-2], features[1:-1]):
+            dense_layers += [pt.nn.Linear(in_features=in_features, out_features=out_features), pt.nn.ReLU()]
         self.model = pt.nn.Sequential(
-                pt.nn.Linear(in_features=in_features, out_features=in_features),
-                pt.nn.ReLU(),
-                pt.nn.Linear(in_features=in_features, out_features=out_features),
+                *dense_layers,
+                pt.nn.Linear(in_features=features[-2], out_features=features[-1]),
                 pt.nn.Softmax(dim=-1)
                 )
-        self.linear = pt.nn.Linear(in_features=in_features, out_features=out_features)
-        self.softmax = pt.nn.Softmax(dim=-1)
 
     def forward(self, x):
 
-        x = self.linear(x)
-        x = self.softmax(x)
-
-        return x
+        return self.model(x)
 
 
 if __name__ == "__main__":

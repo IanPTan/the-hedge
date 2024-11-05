@@ -16,7 +16,7 @@ print(f"Loading {TOKENIZER_FILE} and {RWKV_FILE}...")
 embed = Embedder(TOKENIZER_FILE, RWKV_FILE, N_LAYER)
 
 print(f"Loading {model_file}...")
-model = Model(in_features=1024, out_features=3)
+model = Model(features=[1024, 512, 3])
 weights = pt.load(model_file)
 model.load_state_dict(weights)
 model.eval()

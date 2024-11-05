@@ -10,9 +10,10 @@ from tqdm import tqdm
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 dataset_name = "../data/dataset.h5"
 epochs = 1000
-batch_size = 26000
+batch_size = 101
+#batch_size = 26000
 
-model = Model(in_features=1024, out_features=3).to(device)
+model = Model(features=[1024, 512, 3]).to(device)
 dataset = Dataset(dataset_name)
 
 batch_len = len(dataset) // batch_size + (len(dataset) % batch_size > 0)
@@ -20,8 +21,8 @@ batch_len = len(dataset) // batch_size + (len(dataset) % batch_size > 0)
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 criterion = pt.nn.CrossEntropyLoss()
-optimizer = pt.optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-4)
-scheduler = pt.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=32, eta_min=0)
+optimizer = pt.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
+scheduler = pt.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=128, eta_min=0)
 
 all_losses = pt.zeros(epochs)
 print(f"Starting training using {device}.")
