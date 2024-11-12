@@ -6,6 +6,8 @@ from utils import Embedder, pca
 import pandas as pd
 from model import Model
 
+device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
+device = "cpu"
 RWKV_FILE = "../model/RWKV-4-Pile-430M-20220808-8066.pth"
 TOKENIZER_FILE = "../model/20B_tokenizer.json"
 N_LAYER = 24
@@ -16,7 +18,7 @@ print(f"Loading {TOKENIZER_FILE} and {RWKV_FILE}...")
 embed = Embedder(TOKENIZER_FILE, RWKV_FILE, N_LAYER)
 
 print(f"Loading {model_file}...")
-model = Model(features=[1024, 512, 3])
+model = Model(features=[1024, 512, 256, 128, 64, 32, 2]).to(device)
 weights = pt.load(model_file)
 model.load_state_dict(weights)
 model.eval()
@@ -27,4 +29,5 @@ while 1:
     text = input("Headline: ")
     emb = embed([text])
     pred = model(emb)[0]
-    print(f"Good: {pred[1]}\nNeutral: {pred[2]}\nBad: {pred[0]}")
+    print(f"Good: {pred[1] * 100:.4f}%\nBad: {pred[0] * 100:.4f}%")
+    #print(f"Good: {pred[1] * 100:.4f}%\nNeutral: {pred[2] * 100:.4f}%\nBad: {pred[0] * 100:.4f}%")

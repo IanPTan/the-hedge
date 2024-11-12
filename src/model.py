@@ -47,8 +47,7 @@ class TimeMix(pt.nn.Module):
         self.last_num = 0
         self.last_den = 0
 
-    def forward(self, x):
-
+    def forward(self, x, lengths):
         last_x = pt.zeros(x.shape, dtype=x.dtype, device=x.device)
         last_x[..., 1:, :] = x[..., :-1, :]
         last_x[..., 0, :] = self.last_x
@@ -58,7 +57,9 @@ class TimeMix(pt.nn.Module):
         v = lin(self.w_v, x * self.mix_v + last_x * (1 - self.mix_v))
         r = lin(self.w_r, x * self.mix_r + last_x * (1 - self.mix_r))
 
-        self.wkv = pt.zeros(k.shape)
+        self.wkv = pt.zeros(k.shape, device=x.device)
+        state_num = pt.zeros(k.shape[:-2] + k.shape[-1:], device=x.device)
+        state_den = pt.zeros(k.shape[:-2] + k.shape[-1:], device=x.device)
         for i in range(k.shape[-2]):
             exp_bonus_k = pt.exp(self.bonus + k[..., i, :])
             self.wkv[..., i, :] = (self.last_num + exp_bonus_k * v[..., i, :]) / (self.last_den + exp_bonus_k)
@@ -66,10 +67,13 @@ class TimeMix(pt.nn.Module):
             exp_k = pt.exp(k[..., i, :])
             self.last_num = decay * self.last_num + exp_k * v[..., i, :]
             self.last_den = decay * self.last_den + exp_k
+            ends = lengths == i
+            state_num[ends] = self.last_num[ends]
+            state_den[ends] = self.last_den[ends]
 
         rwkv = self.sigmoid(r) * self.wkv
 
-        return lin(self.w_out, rwkv)
+        return lin(self.w_out, rwkv), (state_num, state_den)
 
 
 class ChannelMix(pt.nn.Module):
@@ -132,10 +136,11 @@ class RWKV(pt.nn.Module):
         x = self.ln_in(x)
 
         for ln1, att, ln2, ffn in zip(self.ln1, self.att, self.ln2, self.ffn):
-            x += att(ln1(x))
+            dx, (state_num, state_den) = att(ln1(x), lengths)
+            x += dx
             x += ffn(ln2(x))
 
-        state = att.wkv[pt.arange(len(x)), lengths, :]
+        state = state_num / state_den
 
         return state
 

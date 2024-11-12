@@ -34,7 +34,7 @@ class Embedder():
         self.device = device
         state_dict = load_model(MODEL_FILE=MODEL_FILE, device=device)
         self.tokenizer = Tokenizer.from_file(TOKENIZER_FILE)
-        self.rwkv = RWKV(state_dict, N_LAYER)
+        self.rwkv = RWKV(state_dict, N_LAYER).to(device)
         self.rwkv.eval()
 
     def __call__(self, text):
