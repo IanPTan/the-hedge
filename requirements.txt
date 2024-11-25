@@ -5,3 +5,4 @@ torch==2.3.1
 h5py==3.12.1
 pandas==2.2.3
 tqdm==4.66.6
+selenium==4.27.0
