@@ -81,4 +81,5 @@ def google_scan(driver, url, xpaths=xpaths, headers=headers, pause=1):
             return tickers
 
 
-results = google_scan(driver, url, xpaths, headers, 1)
+if __name__ == "__main__":
+    results = google_scan(driver, url, xpaths, headers, 1)
