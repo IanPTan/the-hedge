@@ -8,11 +8,6 @@ from time import time
 import yfinance as yf
 import pandas as pd
 
-driver_path = "/usr/bin/geckodriver"
-service = Service(driver_path)
-options = Options()
-#options.add_argument("--headless")
-driver = webdriver.Firefox(service=service, options=options)
 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"}
 
 url = "https://www.google.com/search?q=fda+site:https://finance.yahoo.com/news/&sca_esv=a3aa32e04255f5fb&source=lnt&tbs=qdr:m&sa=X&ved=2ahUKEwif45GVl_iJAxUDmokEHdgPDogQpwV6BAgFEAo&biw=1707&bih=944&dpr=1.5"
@@ -96,6 +91,11 @@ def yfin_scan(ticker, interval="5m", news_cols=["providerPublishTime", "link", "
 
 
 if __name__ == "__main__":
+    driver_path = "/usr/bin/geckodriver"
+    service = Service(driver_path)
+    options = Options()
+    #options.add_argument("--headless")
+    driver = webdriver.Firefox(service=service, options=options)
     tickers = ticker_scan(driver, url, xpaths, headers, 1)
     driver.quit()
     for ticker in tickers:
