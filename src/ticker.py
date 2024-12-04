@@ -5,6 +5,8 @@ from selenium.webdriver.common.by import By
 import requests as rq
 from lxml import html
 from time import time
+import yfinance as yf
+import pandas as pd
 
 driver_path = "/usr/bin/geckodriver"
 service = Service(driver_path)
@@ -22,7 +24,7 @@ xpaths = {
         }
 
 
-def ticker_scan(url, xpaths=xpaths, headers=headers):
+def article_scan(url, xpaths=xpaths, headers=headers):
 
     page = rq.get(url, headers=headers)
 
@@ -32,7 +34,7 @@ def ticker_scan(url, xpaths=xpaths, headers=headers):
     return [element.text.strip() for element in html.fromstring(page.text).xpath(xpaths["tickers"])]
 
 
-def raw_google_scan(driver, url, xpaths=xpaths):
+def google_scan(driver, url, xpaths=xpaths):
 
     driver.get(url)
     results = []
@@ -56,7 +58,7 @@ def raw_google_scan(driver, url, xpaths=xpaths):
             return results
 
 
-def google_scan(driver, url, xpaths=xpaths, headers=headers, pause=1):
+def ticker_scan(driver, url, xpaths=xpaths, headers=headers, pause=1):
 
     driver.get(url)
     tickers = set()
@@ -65,7 +67,7 @@ def google_scan(driver, url, xpaths=xpaths, headers=headers, pause=1):
         for element in driver.find_elements(By.XPATH, xpaths["results"]):
             article_url = element.get_dom_attribute("href")
             try:
-                tickers = tickers.union(set(ticker_scan(article_url, xpaths, headers)))
+                tickers = tickers.union(set(article_scan(article_url, xpaths, headers)))
                 print(f"Successfully scraped: {article_url}")
             except:
                 print(f"Failed to scrape: {article_url}")
@@ -81,5 +83,25 @@ def google_scan(driver, url, xpaths=xpaths, headers=headers, pause=1):
             return tickers
 
 
+def yfin_scan(ticker, interval="5m", news_cols=["providerPublishTime", "link", "title", "relatedTickers"], price_cols=["Open", "Close", "High", "Low", "Volume"]):
+
+    ticker = yf.Ticker(ticker)
+    news = pd.DataFrame(ticker.news)[news_cols]
+    news.rename(columns={"providerPublishTime": "time", "relatedTickers": "related"}, inplace=True)
+    prices = ticker.history(interval=interval)[price_cols]
+    prices["time"] = prices.index.astype(int) // 10 ** 9
+    prices.rename(columns={name: name.lower() for name in price_cols}, inplace=True)
+    
+    return news, prices
+
+
 if __name__ == "__main__":
-    results = google_scan(driver, url, xpaths, headers, 1)
+    tickers = ticker_scan(driver, url, xpaths, headers, 1)
+    driver.quit()
+    for ticker in tickers:
+        a = 0
+        try:
+            n, p = yfin_scan(ticker)
+            a += len(n)
+        except:
+            print("Failed")
