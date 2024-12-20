@@ -11,25 +11,66 @@ INDEX_URL = "https://finance.yahoo.com/sitemap"
 
 
 XPATHS = {
-        "month": "/html/body/div[1]/div/main/div/div/div/ul/li/ul/li/a",
-        "day": "/html/body/div[1]/div/main/div/div/div/div[1]/div/a",
-        "article": "/html/body/div[1]/div/main/div/div/div/ul/li/a",
+        "months": "/html/body/div[1]/div/main/div/div/div/ul/li/ul/li/a",
+        "days": "/html/body/div[1]/div/main/div/div/div/div[1]/div/a",
+        "articles": "/html/body/div[1]/div/main/div/div/div/ul/li/a",
         "next": "/html/body/div[1]/div/main/div/div/div/div[2]/a",
         "tickers": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[3]/div[1]/div/div/div/div/div/a/div/span",
         "time": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[2]/div[1]/div/div[2]/time"
         }
 
 
-def article_scan(url, xpaths=XPATHS, headers=HEADERS):
+def get_page(url, headers=HEADERS):
 
-    page = rq.get(url, headers=HEADERS)
+    response = rq.get(url, headers=HEADERS)
 
-    if page.status_code != 200:
-        raise ValueError(f"\"{url}\" failed to load: ERROR {page.status_code}")
+    if response.status_code != 200:
+        raise ValueError(f"\"{url}\" failed to load: ERROR {response.status_code}")
+
+    page = html.fromstring(response.text)
+
+    return page
+
+
+def scan_months(url, period=730, xpaths=XPATHS, headers=HEADERS):
     
-    page_tree = html.fromstring(page.text)
-    tickers = [element.text.strip() for element in page_tree.xpath(xpaths["tickers"])]
-    time = page_tree.xpath(xpaths["time"]).text.strip()
+    months = get_page(url, headers).xpath(xpaths["months"])
+
+    day_urls = []
+    for month in months:
+        month_days = get_page(month.attrib["href"]).xpath(xpaths["days"])
+
+        for day in month_days:
+            day_urls.append(day.attrib["href"])
+
+            if len(day_urls) == period:
+                return day_urls
+
+
+def scan_day(day_url, xpaths=XPATHS, headers=HEADERS):
+
+    article_urls = []
+    article_titles = []
+    while 1:
+        print(f"Scanning {day_url}...")
+        page = get_page(day_url)
+        next_elements = page.xpath(xpaths["next"])
+        if not next_elements:
+            return article_urls, article_titles
+        day_url = next_elements[-1].attrib["href"]
+
+        articles = page.xpath(xpaths["articles"])
+        for article in articles:
+            article_urls.append(article.attrib["href"])
+            article_titles.append(article.text)
+
+
+def scan_article(url, xpaths=XPATHS, headers=HEADERS):
+
+    page = get_page(url, headers)
+
+    tickers = [element.text.strip() for element in page.xpath(xpaths["tickers"])]
+    time = page.xpath(xpaths["time"])[0].text.strip()
 
     return tickers, time
 
