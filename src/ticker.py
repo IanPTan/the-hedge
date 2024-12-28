@@ -17,7 +17,7 @@ XPATHS = {
         "next": "/html/body/div[1]/div/main/div/div/div/div[2]/a",
         "tickers": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[3]/div[1]/div/div/div/div/div/a/div/span",
         "time": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[2]/div[1]/div/div[2]/time",
-        "text": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[3]/div[2]/p"
+        "paragraphs": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[3]/div[2]/p"
         }
 EPOCH = dt.date(1970, 1, 1)
 days_to_date = lambda days: EPOCH + dt.timedelta(days=days)
@@ -110,9 +110,11 @@ def scan_article(url, xpaths=XPATHS, headers=HEADERS):
     page = get_page(url, headers)
 
     tickers = [element.text.strip() for element in page.xpath(xpaths["tickers"])]
-    time = page.xpath(xpaths["time"])[0].text.strip()
+    time_str = page.xpath(xpaths["time"])[0].text.strip()
+    time = pd.to_datetime(time_str)
+    text = "\n".join("".join(paragraph.itertext()) for paragraph in page.xpath(xpaths["paragraphs"])).replace("\xa0", "")
 
-    return tickers, time
+    return tickers, time, text
 
 
 def yfin_scan(ticker, interval="30m", price_cols=["Open", "Close", "High", "Low", "Volume"]):
