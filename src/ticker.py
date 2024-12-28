@@ -1,8 +1,8 @@
-import concurent.futures as cf
+import concurrent.futures as cf
 import requests as rq
 import pandas as pd
 from lxml import html
-from time import time
+from time import time, sleep
 import datetime as dt
 
 
@@ -17,8 +17,7 @@ XPATHS = {
         "time": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[2]/div[1]/div/div[2]/time"
         }
 EPOCH = dt.date(1970, 1, 1)
-
-days_to_date = lambda days: EPOCH + dt.delta_time(days=days)
+days_to_date = lambda days: EPOCH + dt.timedelta(days=days)
 date_to_days = lambda date: (date - EPOCH).days
 get_day = lambda date: f"https://finance.yahoo.com/sitemap/{date.year}_{date.month}_{date.day}"
 
@@ -44,15 +43,21 @@ def get_page(url, headers=HEADERS):
 
 def scan_day(days, patience=3, xpaths=XPATHS, headers=HEADERS):
 
+    print(f"Scanning {day_url}")
     date = days_to_date(days)
-    day_url = get_url(date)
+    day_url = get_day(date)
 
     article_urls = []
     article_titles = []
-    while tries > patience:
-        print(f"Scanning {day_url}")
-        page = get_page(day_url)
-        
+    tries = 0
+    while tries < patience:
+        try:
+            page = get_page(day_url)
+        except ValueError as e:
+            print(f"\tRETRYING {e}")
+            tries += 1
+            continue
+            
         articles = page.xpath(xpaths["articles"])
         for article in articles:
             article_urls.append(article.attrib["href"])
@@ -67,23 +72,26 @@ def scan_day(days, patience=3, xpaths=XPATHS, headers=HEADERS):
 
         next_element = next_elements[-1]
         if next_element.text != "Next":
-            return article_urls, article_titles
+            return article_urls, article_titles, f"S {day_url}"
         day_url = next_element.attrib["href"]
 
-    return article_urls, article_titles
+    print("\tGIVING UP")
+    return article_urls, article_titles, f"F {day_url}"
 
 
 def scan_days(all_days, workers=16, patience=3, xpaths=XPATHS, headers=HEADERS):
 
     article_urls = []
     article_titles = []
+    statuses = []
     with cf.ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [executor.submit(worker, days, patience, xpaths, headers) for days in all_days]
+        futures = [executor.submit(scan_day, days, patience, xpaths, headers) for days in all_days]
         for future in cf.as_completed(futures):
-            day_urls, day_titles = future.result()
+            day_urls, day_titles, status = future.result()
             article_urls += day_urls
             article_titles += day_titles
-    return article_urls, article_titles
+            statuses.append(status)
+    return article_urls, article_titles, statuses
 
 
 def scan_article(url, xpaths=XPATHS, headers=HEADERS):
@@ -97,10 +105,16 @@ def scan_article(url, xpaths=XPATHS, headers=HEADERS):
 
 
 if __name__ == "__main__":
-
-    start_date = dt.date(2024, 12, 20)
+    start_date = dt.date(2024, 10, 1)
     start_days = date_to_days(start_date)
-    end_date = dt.date(2024, 12, 27)
+    end_date = dt.date(2024, 12, 10)
     end_days = date_to_days(end_date)
     all_days = range(start_days, end_days + 1)
-    urls, titles = scan_days(all_days)
+    start = time()
+    urls, titles, statuses = scan_days(all_days, 2)
+    dur = time() - start
+    success = 0
+    for status in statuses:
+        if status[0] == "S":
+            success += 1
+    print(F"Took {dur:.4f} seconds to scrape {len(urls)} articles, {sum(statuses)}/{end_days - start_days + 1} days succeeded")
