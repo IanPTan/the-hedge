@@ -8,7 +8,6 @@ import yfinance as yf
 from tqdm import tqdm
 
 
-# 19632
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"}
 INDEX_URL = "https://finance.yahoo.com/sitemap"
 XPATHS = {
@@ -100,7 +99,7 @@ def scan_days(all_days, workers=16, patience=10, wait=10, xpaths=XPATHS, headers
             day_urls, day_titles, url, status = future.result()
             article_urls += day_urls
             article_titles += day_titles
-            urls.append(url
+            urls.append(url)
             statuses.append(status)
             counts.append(len(day_urls))
     return article_urls, article_titles, url, statuses, counts
