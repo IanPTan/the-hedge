@@ -90,7 +90,7 @@ def scan_days(day_urls, workers=1, patience=10, wait=10, xpaths=XPATHS, headers=
     with cf.ThreadPoolExecutor(max_workers=workers) as executor:
         futures = [executor.submit(scan_day, day_url, patience, wait, xpaths, headers) for day_url in day_urls]
 
-        for future in tqdm(cf.as_completed(futures), total=len(futures), desc="Scraping...", unit="days"):
+        for future in tqdm(cf.as_completed(futures), total=len(futures), desc="Scraping...", unit="day"):
             day_urls, day_titles, url, status = future.result()
             article_urls += day_urls
             article_titles += day_titles
@@ -108,9 +108,12 @@ def scan_article(url, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
         sleep(tries * wait)
 
         try:
+            print(f"Grabbing {url}... ", end="")
             page = get_page(url, headers)
+            print(f"[GRABBED]")
         except ValueError as e:
             tries += 1
+            print(f"waiting {tries * wait}s for {url}")
             continue
 
         tickers = [element.text.strip() for element in page.xpath(xpaths["tickers"])]
@@ -123,7 +126,7 @@ def scan_article(url, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
     return [], "", pd.to_datetime(0), url, 0
 
 
-def scan_articles(article_urls, remove_empty=True, workers=1, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
+def scan_articles(article_urls, filtered=True, workers=1, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
 
     tickers = []
     text = []
@@ -134,9 +137,9 @@ def scan_articles(article_urls, remove_empty=True, workers=1, patience=10, wait=
     with cf.ThreadPoolExecutor(max_workers=workers) as executor:
         futures = [executor.submit(scan_article, article_url, patience, wait, xpaths, headers) for article_url in article_urls]
 
-        for future in tqdm(cf.as_completed(futures), total=len(futures), desc="Scraping...", unit="days"):
+        for future in cf.as_completed(futures), total=len(futures), desc="Scraping...", unit="article"):
             article_tickers, article_text, article_time, url, status = future.result()
-            if not article_tickers and remove_empty:
+            if not article_tickers and filtered:
                 continue
             tickers.append(article_tickers)
             text.append(article_text)
@@ -147,10 +150,10 @@ def scan_articles(article_urls, remove_empty=True, workers=1, patience=10, wait=
     return tickers, text, times, urls, statuses
 
 
-def yfin_scan(ticker, interval="30m", price_cols=["Open", "Close", "High", "Low", "Volume"]):
+def yfin_scan(ticker, interval="1h", period="max", price_cols=["Open", "Close", "High", "Low", "Volume"]):
 
     ticker = yf.Ticker(ticker)
-    prices = ticker.history(interval=interval)[price_cols]
+    prices = ticker.history(interval=interval, period=period)[price_cols]
     prices["time"] = prices.index.astype(int) // 10 ** 9
     prices.rename(columns={name: name.lower() for name in price_cols}, inplace=True)
     
