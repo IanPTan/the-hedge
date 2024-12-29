@@ -44,22 +44,18 @@ def get_page(url, headers=HEADERS):
     return page
 
 
-def scan_day(days, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
-
-    date = days_to_date(days)
-    day_url = get_day(date)
-    #print(f"Scanning {day_url}")
+def scan_day(day_url, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
 
     article_urls = []
     article_titles = []
     tries = 0
+
     while tries < patience:
         sleep(tries * wait)
 
         try:
             page = get_page(day_url)
         except ValueError as e:
-            #print(f"\tRETRYING {e}")
             tries += 1
             continue
             
@@ -71,30 +67,29 @@ def scan_day(days, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
 
         next_elements = page.xpath(xpaths["next"])
         if not next_elements:
-            #print("\tRETRYING")
             tries += 1
             continue
         tries = 0
 
         next_element = next_elements[-1]
         if next_element.text != "Next":
-            #print(f"Successfully scraped {len(article_urls)} articles from {day_url}")
             return article_urls, article_titles, day_url, 1
         day_url = next_element.attrib["href"]
 
-    #print("\tGIVING UP")
     return article_urls, article_titles, day_url, 0
 
 
-def scan_days(all_days, workers=16, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
+def scan_days(day_urls, workers=1, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
 
     article_urls = []
     article_titles = []
     urls = []
     statuses = []
     counts = []
+
     with cf.ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [executor.submit(scan_day, days, patience, wait, xpaths, headers) for days in all_days]
+        futures = [executor.submit(scan_day, day_url, patience, wait, xpaths, headers) for day_url in day_urls]
+
         for future in tqdm(cf.as_completed(futures), total=len(futures), desc="Scraping...", unit="days"):
             day_urls, day_titles, url, status = future.result()
             article_urls += day_urls
@@ -102,19 +97,54 @@ def scan_days(all_days, workers=16, patience=10, wait=10, xpaths=XPATHS, headers
             urls.append(url)
             statuses.append(status)
             counts.append(len(day_urls))
-    return article_urls, article_titles, url, statuses, counts
+
+    return article_urls, article_titles, urls, statuses, counts
 
 
-def scan_article(url, xpaths=XPATHS, headers=HEADERS):
+def scan_article(url, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
 
-    page = get_page(url, headers)
+    tries = 0
+    while tries < patience:
+        sleep(tries * wait)
 
-    tickers = [element.text.strip() for element in page.xpath(xpaths["tickers"])]
-    time_str = page.xpath(xpaths["time"])[0].text.strip()
-    time = pd.to_datetime(time_str)
-    text = "\n".join("".join(paragraph.itertext()) for paragraph in page.xpath(xpaths["paragraphs"])).replace("\xa0", "")
+        try:
+            page = get_page(url, headers)
+        except ValueError as e:
+            tries += 1
+            continue
 
-    return tickers, time, text
+        tickers = [element.text.strip() for element in page.xpath(xpaths["tickers"])]
+        time_str = page.xpath(xpaths["time"])[0].text.strip()
+        time = pd.to_datetime(time_str)
+        text = "\n".join("".join(paragraph.itertext()) for paragraph in page.xpath(xpaths["paragraphs"])).replace("\xa0", "")
+
+        return tickers, text, time, url, 1
+
+    return [], "", pd.to_datetime(0), url, 0
+
+
+def scan_articles(article_urls, remove_empty=True, workers=1, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
+
+    tickers = []
+    text = []
+    times = []
+    urls = []
+    statuses = []
+
+    with cf.ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [executor.submit(scan_article, article_url, patience, wait, xpaths, headers) for article_url in article_urls]
+
+        for future in tqdm(cf.as_completed(futures), total=len(futures), desc="Scraping...", unit="days"):
+            article_tickers, article_text, article_time, url, status = future.result()
+            if not article_tickers and remove_empty:
+                continue
+            tickers.append(article_tickers)
+            text.append(article_text)
+            times.append(article_time)
+            urls.append(url)
+            statuses.append(status)
+
+    return tickers, text, times, urls, statuses
 
 
 def yfin_scan(ticker, interval="30m", price_cols=["Open", "Close", "High", "Low", "Volume"]):

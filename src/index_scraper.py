@@ -7,10 +7,10 @@ end_date = dt.date(2024, 12, 26)
 start_days = date_to_days(start_date)
 end_days = date_to_days(end_date)
 
-all_days = range(start_days, end_days + 1)
+day_urls = day_urls(start_date, end_date)
 
 start = time()
-article_urls, article_titles, urls, statuses, counts = scan_days(all_days, 1)
+article_urls, article_titles, urls, statuses, counts = scan_days(day_urls, 1)
 dur = time() - start
 
 success = 0
