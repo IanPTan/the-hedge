@@ -110,7 +110,7 @@ def scan_article(url, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
         try:
             print(f"Grabbing {url}... ", end="")
             page = get_page(url, headers)
-            print(f"[GRABBED]")
+            print(f"[GRABBED]", end="")
         except ValueError as e:
             tries += 1
             print(f"waiting {tries * wait}s for {url}")
@@ -121,6 +121,7 @@ def scan_article(url, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
         time = pd.to_datetime(time_str)
         text = "\n".join("".join(paragraph.itertext()) for paragraph in page.xpath(xpaths["paragraphs"])).replace("\xa0", "")
 
+        print("[DONE]")
         return tickers, text, time, url, 1
 
     return [], "", pd.to_datetime(0), url, 0
@@ -137,7 +138,7 @@ def scan_articles(article_urls, filtered=True, workers=1, patience=10, wait=10, 
     with cf.ThreadPoolExecutor(max_workers=workers) as executor:
         futures = [executor.submit(scan_article, article_url, patience, wait, xpaths, headers) for article_url in article_urls]
 
-        for future in cf.as_completed(futures), total=len(futures), desc="Scraping...", unit="article"):
+        for future in tqdm(cf.as_completed(futures), total=len(futures), desc="Scraping...", unit="article"):
             article_tickers, article_text, article_time, url, status = future.result()
             if not article_tickers and filtered:
                 continue
