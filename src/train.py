@@ -3,25 +3,37 @@ import numpy as np
 import torch as pt
 from dataset import Dataset
 from model import Model
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from tqdm import tqdm
 import h5py as hp
 
 
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
-dataset_name = "../data/dataset.h5"
+dataset_name = "dataset.h5"
 epochs = 10000
+#epochs = 2000
 #batch_size = 101
 #batch_size = 26000
 batch_size = 2 ** 12
+#batch_size = 2 ** 14
+#batch_size = 29371
+#batch_size = 30358
 #batch_size = 17252
 
-model = Model(features=[1024, 1024, 1024, 512, 128, 32, 2]).to(device)
+model = Model(features=[1024, 1024, 1024, 512, 128, 32, 5]).to(device)
+#model = Model(features=[1024, 512, 32, 5]).to(device)
 dataset = Dataset(dataset_name)
 
 batch_len = len(dataset) // batch_size + (len(dataset) % batch_size > 0)
 
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+class_counts = pt.bincount(pt.tensor(dataset.labels[:])) 
+class_weights = 1.0 / class_counts
+class_weights = class_weights / pt.sum(class_weights)
+weights = [class_weights[label] for label in dataset.labels[:]] 
+sampler = WeightedRandomSampler(weights, len(dataset.labels[:]))
+
+#dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler)
 
 criterion = pt.nn.CrossEntropyLoss()
 optimizer = pt.optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-6)
@@ -44,9 +56,11 @@ for epoch in pbar:
     scheduler.step(pt.mean(losses))
     all_losses[epoch] = pt.mean(losses)
     pbar.set_postfix(loss=f"{pt.mean(losses).item():.4f}")
+
 pt.save(model.state_dict(), "backup.ckpt")
 with hp.File("logs.h5", "w") as file:
     file.create_dataset("loss", data=all_losses.detach())
+
 """
 plt.plot(all_losses.detach())
 plt.show()

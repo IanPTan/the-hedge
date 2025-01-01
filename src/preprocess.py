@@ -12,9 +12,9 @@ RWKV_FILE = "../model/RWKV-4-Pile-430M-20220808-8066.pth"
 TOKENIZER_FILE = "../model/20B_tokenizer.json"
 N_LAYER = 24
 N_EMBD = 1024
-raw_data_name = "../data/dataset.csv"
-dataset_name = "../data/dataset.h5"
-batch_size = 128
+raw_data_name = "dataset.csv"
+dataset_name = "dataset.h5"
+batch_size = 20
 
 print(f"Loading {TOKENIZER_FILE} and {RWKV_FILE}...")
 embed = Embedder(TOKENIZER_FILE, RWKV_FILE, N_LAYER, device=device)
@@ -29,13 +29,13 @@ embs = np.zeros((data_len, N_EMBD), np.float32)
 batch_amnt = data_len // batch_size + (data_len % batch_size > 0)
 for start in tqdm(range(0, data_len, batch_size), desc="Embedding...", unit="batch"):
     batch = slice(start, start + batch_size)
-    text = data["Title"][batch]
+    text = data["title"][batch]
     embs[batch] = embed(text).cpu()
 
 print("Saving embeddings...")
 with hp.File(dataset_name, "w") as file:
     file.create_dataset("headlines", data=embs)
-    file.create_dataset("labels", data=data["Value"])
+    file.create_dataset("labels", data=data["label"])
 
 """
 print("Creating visualization...")
