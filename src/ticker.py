@@ -44,7 +44,7 @@ def get_page(url, headers=HEADERS):
     return page
 
 
-def scan_day(day_url, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
+def scan_day(day_url, patience=5, wait=60, xpaths=XPATHS, headers=HEADERS):
 
     article_urls = []
     article_titles = []
@@ -55,7 +55,7 @@ def scan_day(day_url, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
 
         try:
             page = get_page(day_url)
-        except ValueError as e:
+        except Exception as e:
             tries += 1
             continue
             
@@ -105,29 +105,31 @@ def scan_article(url, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
 
     tries = 0
     while tries < patience:
-        sleep(tries * wait)
 
         try:
-            print(f"Grabbing {url}... ", end="")
+            sleep(tries * wait)
             page = get_page(url, headers)
-            print(f"[GRABBED]", end="")
-        except ValueError as e:
+
+            tickers = [element.text.strip() for element in page.xpath(xpaths["tickers"])]
+            time_str = page.xpath(xpaths["time"])[0].text.strip()
+            time = pd.to_datetime(time_str).tz_localize('America/New_York')
+            text = "\n".join("".join(paragraph.itertext()) for paragraph in page.xpath(xpaths["paragraphs"])).replace("\xa0", "")
+
+            return tickers, text, time, url, 1
+        except ValueError:
             tries += 1
-            print(f"waiting {tries * wait}s for {url}")
+            print(f"404 waiting {tries * wait}s for {url}")
+            continue
+        except Exception as e:
+            tries += 1
+            print(f"\n\n\n\n\n\tACHTUNG\n\t{e}\n\t{url}\n\tWaiting {tries * wait} seconds\n\n\n\n\n")
             continue
 
-        tickers = [element.text.strip() for element in page.xpath(xpaths["tickers"])]
-        time_str = page.xpath(xpaths["time"])[0].text.strip()
-        time = pd.to_datetime(time_str)
-        text = "\n".join("".join(paragraph.itertext()) for paragraph in page.xpath(xpaths["paragraphs"])).replace("\xa0", "")
-
-        print("[DONE]")
-        return tickers, text, time, url, 1
-
+    print(f"\n\n\n\n\n\tACHTUNG [FAILED]\n\t{url}\n\n\n\n\n")
     return [], "", pd.to_datetime(0), url, 0
 
 
-def scan_articles(article_urls, filtered=True, workers=1, patience=10, wait=10, xpaths=XPATHS, headers=HEADERS):
+def scan_articles(article_urls, filtered=True, workers=1, patience=3, wait=60, xpaths=XPATHS, headers=HEADERS):
 
     tickers = []
     text = []
@@ -139,23 +141,68 @@ def scan_articles(article_urls, filtered=True, workers=1, patience=10, wait=10, 
         futures = [executor.submit(scan_article, article_url, patience, wait, xpaths, headers) for article_url in article_urls]
 
         for future in tqdm(cf.as_completed(futures), total=len(futures), desc="Scraping...", unit="article"):
-            article_tickers, article_text, article_time, url, status = future.result()
-            if not article_tickers and filtered:
-                continue
-            tickers.append(article_tickers)
-            text.append(article_text)
-            times.append(article_time)
-            urls.append(url)
-            statuses.append(status)
+            try:
+                article_tickers, article_text, article_time, url, status = future.result()
+                if not article_tickers and filtered:
+                    continue
+                tickers.append(article_tickers)
+                text.append(article_text)
+                times.append(article_time)
+                urls.append(url)
+                statuses.append(status)
+            except Exception as e:
+                print(f"\n\n\n\n\n\tACHTUNG [COMPLETE FAILURE]\n\t{e}\n\n\n\n\n")
 
     return tickers, text, times, urls, statuses
 
 
-def yfin_scan(ticker, interval="1h", period="max", price_cols=["Open", "Close", "High", "Low", "Volume"]):
+def scan_yfin(ticker, interval="1h", period="max", patience=4, wait=10, price_cols=["Open", "Close", "High", "Low", "Volume"]):
 
     ticker = yf.Ticker(ticker)
-    prices = ticker.history(interval=interval, period=period)[price_cols]
-    prices["time"] = prices.index.astype(int) // 10 ** 9
-    prices.rename(columns={name: name.lower() for name in price_cols}, inplace=True)
+
+    tries = 0
+    while tries < patience:
+        sleep(tries * wait)
+        prices = ticker.history(interval=interval, period=period)[price_cols]
+        if len(prices):
+            prices["time"] = prices.index.astype(int) // 10 ** 9
+            prices.rename(columns={name: name.lower() for name in price_cols}, inplace=True)
+            
+            return prices
+        tries += 1
+        print(f"FAILED {ticker} waiting {tries * wait}s")
+
+    return None
+
+
+
+def scan_change(prices, article_time, hist_win=12, spike_win=1, spike_dis=1.5):
     
-    return prices
+    prices_left = prices[prices["time"] < article_time]
+    prices_before = prices_left.iloc[-hist_win:]
+    prices_right = prices[article_time <= prices["time"]]
+    prices_after = prices_right.iloc[:spike_win]
+
+    close_before = prices_before["close"].sort_values()
+    iqr = close_before.quantile(0.75) - close_before.quantile(0.25)
+    m = close_before.quantile(0.5)
+
+    upper_bound = m + iqr * spike_dis
+    lower_bound = m - iqr * spike_dis
+
+    highest = prices_after.loc[prices_after["high"].idxmax()]
+    lowest = prices_after.loc[prices_after["low"].idxmin()]
+
+    condition = lowest["low"] < lower_bound, highest["high"] > upper_bound, lowest["time"] > highest["time"]
+    spike_case = {
+            (0, 0, 0): 4,
+            (0, 0, 1): 4,
+            (0, 1, 0): 3,
+            (0, 1, 1): 3,
+            (1, 0, 0): 0,
+            (1, 0, 1): 0,
+            (1, 1, 0): 1,
+            (1, 1, 1): 2
+            }[condition]
+
+    return spike_case
