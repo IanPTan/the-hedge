@@ -6,21 +6,16 @@ from model import Model
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from tqdm import tqdm
 import h5py as hp
+from grokfast_pytorch import GrokFastAdamW
 
 
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 dataset_name = "dataset.h5"
 epochs = 10000
-#epochs = 2000
-#batch_size = 101
-#batch_size = 26000
 batch_size = 2 ** 12
-#batch_size = 2 ** 14
-#batch_size = 29371
-#batch_size = 30358
-#batch_size = 17252
+#batch_size = 22336
 
-model = Model(features=[1024, 1024, 1024, 512, 128, 32, 5]).to(device)
+model = Model(features=[1024, 1024, 1024, 512, 128, 32, 3]).to(device)
 #model = Model(features=[1024, 512, 32, 5]).to(device)
 dataset = Dataset(dataset_name)
 
@@ -36,7 +31,8 @@ sampler = WeightedRandomSampler(weights, len(dataset.labels[:]))
 dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler)
 
 criterion = pt.nn.CrossEntropyLoss()
-optimizer = pt.optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-6)
+#optimizer = pt.optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-6)
+optimizer = GrokFastAdamW(model.parameters(), lr=1e-5, weight_decay=1e-6)
 #scheduler = pt.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=128, eta_min=0)
 scheduler = pt.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, min_lr=1e-6)
 
