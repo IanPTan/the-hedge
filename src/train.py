@@ -12,8 +12,8 @@ from grokfast_pytorch import GrokFastAdamW
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 dataset_name = "dataset.h5"
 epochs = 10000
-batch_size = 2 ** 12
-#batch_size = 22336
+#batch_size = 2 ** 12
+batch_size = 22336
 
 model = Model(features=[1024, 1024, 1024, 512, 128, 32, 3]).to(device)
 #model = Model(features=[1024, 512, 32, 5]).to(device)

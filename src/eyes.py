@@ -48,7 +48,7 @@ def google_scan(driver, searches, pause=True, xpaths=xpaths):
             link_els = driver.find_elements(By.XPATH, xpaths["link"])
             title_els = driver.find_elements(By.XPATH, xpaths["title"])
             for link_el, title_el in zip(link_els, title_els):
-                if title_el.text not in results["title"]:
+                if not (results["title"] == title_el.text).any() :
                     results.loc[len(results)] = [link_el.get_dom_attribute("href"), title_el.text]
 
             next = driver.find_elements(By.XPATH, xpaths["next"])
@@ -109,7 +109,8 @@ if __name__ == "__main__":
     embed = Embedder(TOKENIZER_FILE, RWKV_FILE, N_LAYER, device=device)
 
     print(f"Loading {model_file}...")
-    model = Model(features=[1024, 1024, 1024, 512, 128, 32, 5]).to(device)
+    #model = Model(features=[1024, 1024, 1024, 512, 128, 32, 5]).to(device)
+    model = Model(features=[1024, 1024, 1024, 512, 128, 32, 3]).to(device)
     weights = pt.load(model_file)
     model.load_state_dict(weights)
     model.eval()
@@ -125,11 +126,11 @@ if __name__ == "__main__":
 
     print(f"Predicting...") 
     preds = model(embs).detach().cpu().numpy()
-    results[["neg", "neg pos", "pos neg", "pos", "none"]] = preds * 10
+    results[["none", "neg", "pos"]] = preds * 100
     results["label"] = preds.argmax(-1)
     results.to_csv("scan.all.csv", index=False)
 
-    sig_results = results[results["label"] != 4]
+    sig_results = results[results["label"] != 0]
     sig_results.to_csv("scan.csv", index=False)
 
     print(f"Labeled {len(sig_results)} significant articles from {len(results)} articles.")

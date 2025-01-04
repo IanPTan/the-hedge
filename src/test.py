@@ -18,7 +18,8 @@ print(f"Loading {TOKENIZER_FILE} and {RWKV_FILE}...")
 embed = Embedder(TOKENIZER_FILE, RWKV_FILE, N_LAYER)
 
 print(f"Loading {model_file}...")
-model = Model(features=[1024, 1024, 1024, 512, 128, 32, 5]).to(device)
+model = Model(features=[1024, 1024, 1024, 512, 128, 32, 3]).to(device)
+#model = Model(features=[1024, 1024, 1024, 512, 128, 32, 5]).to(device)
 #model = Model(features=[1024, 512, 32, 5]).to(device)
 weights = pt.load(model_file)
 model.load_state_dict(weights)
@@ -26,7 +27,8 @@ model.eval()
 
 print(f"Evaluation Mode.")
 
-labels = ["Negative spike", "Negative followed by positive spike", "Positive followed by negative spike", "Positive spike", "No meaningful spikes"]
+#labels = ["Negative spike", "Negative followed by positive spike", "Positive followed by negative spike", "Positive spike", "No meaningful spikes"]
+labels = ["No meaningful spikes", "Negative spike", "Positive spike"]
 while 1:
     text = input("\nHeadline: ")
     emb = embed([text])
