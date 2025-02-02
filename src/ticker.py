@@ -16,8 +16,8 @@ XPATHS = {
         "articles": "/html/body/div[1]/div/main/div/div/div/ul/li/a",
         "next": "/html/body/div[1]/div/main/div/div/div/div[2]/a",
         "tickers": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[3]/div[1]/div/div/div/div/div/a/div/span",
-        "time": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[2]/div[1]/div/div[2]/time",
-        "paragraphs": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[3]/div[2]/p"
+        "time": "//time",
+        "paragraphs": "/html/body/div[2]/main/section/section/section/article/div/div[1]/div[3]/div[2]/p | //*[@id=\"nimbus-app\"]/section/section/section/article/div/div[1]/div[3]/div[2]/div[4]/ul/li/p"
         }
 EPOCH = dt.date(1970, 1, 1)
 days_to_date = lambda days: EPOCH + dt.timedelta(days=days)

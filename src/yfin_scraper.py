@@ -14,7 +14,7 @@ with pd.HDFStore("prices.h5", 'a') as store:
         if f"/{ticker}" in store:
             #print(f"{ticker} is already stored")
             continue
-        prices = scan_yfin(ticker, interval="1h", period="max", patience=3, wait=10, price_cols=["Open", "Close", "High", "Low", "Volume"])
+        prices = scan_yfin(ticker, interval="1h", period="max", patience=2, wait=10, price_cols=["Open", "Close", "High", "Low", "Volume"])
         if prices is None:
             fails.append(ticker)
             print(f"{ticker} not found in yfinance.")

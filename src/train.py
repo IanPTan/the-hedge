@@ -12,12 +12,12 @@ from grokfast_pytorch import GrokFastAdamW
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 dataset_name = "dataset.h5"
 epochs = 10000
-#batch_size = 2 ** 12
-batch_size = 22336
+batch_size = 2 ** 14
 
 model = Model(features=[1024, 1024, 1024, 512, 128, 32, 3]).to(device)
 #model = Model(features=[1024, 512, 32, 5]).to(device)
 dataset = Dataset(dataset_name)
+#batch_size = len(dataset)
 
 batch_len = len(dataset) // batch_size + (len(dataset) % batch_size > 0)
 
@@ -29,8 +29,9 @@ sampler = WeightedRandomSampler(weights, len(dataset.labels[:]))
 
 #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler)
+val_dataloader = DataLoader(dataset, batch_size=len(dataset), sampler=sampler)
 
-criterion = pt.nn.CrossEntropyLoss()
+criterion = pt.nn.CrossEntropyLoss(weight=pt.tensor([1., 1., 1.]).to(device))
 #optimizer = pt.optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-6)
 optimizer = GrokFastAdamW(model.parameters(), lr=1e-5, weight_decay=1e-6)
 #scheduler = pt.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=128, eta_min=0)
@@ -56,6 +57,21 @@ for epoch in pbar:
 pt.save(model.state_dict(), "backup.ckpt")
 with hp.File("logs.h5", "w") as file:
     file.create_dataset("loss", data=all_losses.detach())
+
+
+correct = [0] * 3
+sums = [0] * 3
+for x, t in val_dataloader:
+    for i in range(3):
+        xi = x[t == i].to(device)
+        ti = t[t == i].to(device)
+        yi = model(xi).argmax(-1)
+        correct[i] += (yi == ti).sum()
+        sums[i] += len(xi)
+
+for i, (c, s) in enumerate(zip(correct, sums)):
+    print(f"label {i}: {(c / s) * 100:.2f}%")
+
 
 """
 plt.plot(all_losses.detach())

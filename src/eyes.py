@@ -83,6 +83,7 @@ if __name__ == "__main__":
             ]
     ends = [
             "News",
+            "FDA News",
             "Catalyst News",
             "Price Target News",
             "News Release",

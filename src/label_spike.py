@@ -1,9 +1,10 @@
 from ticker import *
+import torch as pt
 
 
 hist_win = 4
 spike_win = 8
-spike_dis = 0.15
+spike_dis = 0.05
 
 articles = pd.read_csv("articles.csv")
 
@@ -40,8 +41,10 @@ successes = 0
 with pd.HDFStore("prices.h5", 'r') as store:
     valid_keys = store.keys()
     for i, article in tqdm(articles.iterrows(), total=len(articles), desc="Processing...", unit="article"):
-        label = -1
-        perc = -1
+
+        spikes = pt.zeros(3)
+        valid = False
+
         for ticker in eval(article["tickers"]):
             key = f"/{ticker}"
             if key not in valid_keys:
@@ -74,14 +77,12 @@ with pd.HDFStore("prices.h5", 'r') as store:
                 #print(f"{ticker} data is null")
                 continue
 
-            pos_label, pos_perc = scan_change(prices_before, prices_after, spike_dis=spike_dis)
+            valid = True
+            label, spike = scan_change(prices_before, prices_after, spike_dis=spike_dis)
+            spikes[label] += spike
 
-            if pos_perc > perc:
-                perc = pos_perc
-                label = pos_label
-
-        if label != -1:
-            dataset.loc[len(dataset)] = [article["url"], ticker, *article[["time", "title", "text"]], label]
+        if valid:
+            dataset.loc[len(dataset)] = [article["url"], ticker, *article[["time", "title", "text"]], spikes.argmax().item()]
             successes += 1
 
 dataset.to_csv("dataset.csv", index=False)

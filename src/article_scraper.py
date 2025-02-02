@@ -2,15 +2,19 @@ from ticker import *
 
 
 all_articles = pd.read_csv("all_articles.csv")
-valid_titles = all_articles["title"].str.contains("FDA|Biotech|Pharma|Therapu|Healthcare|Medic")
+keywords = "FDA|Biotech|Pharma|Therapu|Healthcare|Medic|Clinic|Tech|AI|Communic|Acqui|Buyout|Ware|Systems|Manufac|Qua|Tele|Electronic|Chip|Data|Debt|Credit|Loan|Fund|Performance|Service"
+# keywords = "FDA|Biotech|Pharma|Therapu|Healthcare|Medic"
+valid_titles = all_articles["title"].str.contains(keywords)
 valid_urls = all_articles["url"].str.contains("https://finance.yahoo.com/news/")
-filtered = valid_titles * valid_urls
+#filtered = valid_titles & valid_urls
+filtered = valid_urls
 all_articles = all_articles[filtered]
+#all_articles = all_articles
 
 article_urls = all_articles["url"]
 
 start = time()
-article_tickers, article_text, article_times, urls, statuses = scan_articles(article_urls, True, 4, 3, 60)
+article_tickers, article_text, article_times, urls, statuses = scan_articles(article_urls, True, 16, 5, 60)
 dur = time() - start
 
 data = pd.DataFrame({"url": urls, "tickers": article_tickers, "text": article_text}, index=article_times)
