@@ -1,2 +1,2 @@
 # the-hedge
-Money money
+Analyzing the effects of news on stocks.
